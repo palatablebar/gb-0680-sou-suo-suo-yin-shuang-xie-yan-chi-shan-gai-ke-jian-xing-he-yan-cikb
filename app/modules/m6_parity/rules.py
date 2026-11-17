@@ -17,4 +17,7 @@ def evaluate(rows,context):
         expected=Decimal(str(row.get("expected","0")));reported=Decimal(str(row.get("reported","0")))
         output.append({**row,"difference":str(expected-reported),"status":"通过" if expected==reported else "差异"})
     m.update(expected_total=str(sum((Decimal(str(r.get("expected","0"))) for r in rows),Decimal(0))),reported_total=str(sum((Decimal(str(r.get("reported","0"))) for r in rows),Decimal(0))),differences=sum(r["status"]=="差异" for r in output))
-    return {"rows":output,"quarantine":[],"metrics":m}
+    # 差异结果附上同一份契约裁决：页面、差异与导出不会各说各话。
+    contract=context.get("contract",{}) or {}
+    m.update(admission=contract.get("admission","FORMAL"),contract_conflicts=len(contract.get("conflicts",[])))
+    return {"rows":output,"quarantine":[],"metrics":m,"contract":contract}

@@ -16,16 +16,21 @@ def load_sample(name):
     if name not in {"dirty.csv","clean.csv","legacy.csv"}: raise DomainError("BAD_SAMPLE","样例不存在",404)
     return (ROOT/"sample_data"/name).read_bytes()
 def calculate(raw,params=None,stop=6):
-    params=params or {};started=time.monotonic();context={"parameters":params,"raw":raw,"quarantine":[]};stages=[];rows=[]
+    params=params or {};started=time.monotonic();context={"parameters":params,"raw":raw,"quarantine":[]};stages=[];rows=[];scope=""
     for index,stage in enumerate(STAGES[:stop+1]):
         result=stage(raw if index==0 else rows,context)
         result=scalar(result);rows=result["rows"]
         context["quarantine"].extend(result.get("quarantine",[]))
-        if index==0: context["intake"]=result["metrics"]
+        if index==0:
+            context["intake"]=result["metrics"]
+            context["contract"]=result.get("contract",{})
+            # 契约裁决在 M1 落地一次；批次身份与清单都读这一份，页面与导出不会各说各话。
+            scope=result.get("contract",{}).get("run_scope","")
         result["cumulative_quarantine"]=list(context["quarantine"])
         context[MODULES[index][0]]=result
         stages.append(result)
-    return {"run_id":digest(raw,params)[:20],"stages":stages,"manifest":manifest(raw,params,started),"parameters":params}
+    manifest_data=manifest(raw,params,started,scope)
+    return {"run_id":digest(raw,params,scope)[:20],"stages":stages,"manifest":manifest_data,"parameters":params,"contract":context.get("contract",{})}
 def execute(raw,params=None):
     result=calculate(raw,params);return store.save(result["run_id"],result)
 def stage_preview(index,payload):

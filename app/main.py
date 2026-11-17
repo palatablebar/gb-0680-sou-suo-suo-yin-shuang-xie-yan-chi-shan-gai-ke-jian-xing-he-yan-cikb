@@ -30,7 +30,9 @@ def create_app():
     def upload():
         file=request.files.get("file")
         if not file: raise DomainError("NO_FILE","请选择CSV文件")
-        return pipeline.execute(file.read())
+        # 上传同样可声明本批契约版本，与 /api/runs 的 parameters 行为一致。
+        claimed=request.form.get("schema_version")
+        return pipeline.execute(file.read(),{"schema_version":claimed} if claimed else {})
     @application.get("/api/runs")
     def history(): return {"runs":store.history()}
     @application.get("/api/runs/<run_id>")
